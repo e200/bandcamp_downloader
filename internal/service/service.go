@@ -3,12 +3,14 @@ package service
 import (
 	"bandcamp_downloader/internal/downloader"
 	"context"
+	"fmt"
 	"os"
+	"path"
 )
 
-const ()
-
-var ()
+const (
+	outputFileFormat = "mp3"
+)
 
 func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{
@@ -27,13 +29,20 @@ func (s *Service) DownloadTrack(
 	ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
 	defer cancel()
 
-	audioFileURL, err := s.urlFetcher.FetchAudioURL(ctx, trackURL, nil)
+	audioMeta, err := s.urlFetcher.FetchAudioURL(ctx, trackURL, nil)
 	if err != nil {
 		return err
 	}
 
-	if err := s.downloader.Download(ctx, audioFileURL, downloader.Options{
-		Filepath: options.OutputDir,
+	filename := fmt.Sprintf(
+		"%s - %s.%s",
+		audioMeta.Artist,
+		audioMeta.Title,
+		outputFileFormat,
+	)
+
+	if err := s.downloader.Download(ctx, audioMeta.URL, downloader.Options{
+		Filepath: path.Join(options.OutputDir, filename),
 	}); err != nil {
 		return err
 	}

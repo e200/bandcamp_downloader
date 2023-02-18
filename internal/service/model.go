@@ -17,11 +17,10 @@ type Dependencies struct {
 type Options struct {
 	Timeout   time.Duration
 	OutputDir string
-	Filename  string
 }
 
 type Service struct {
-	Config      *Config
+	Config     *Config
 	urlFetcher *urlfetcher.Service
 	downloader *downloader.Service
 }

@@ -14,13 +14,14 @@ func main() {
 	var (
 		trackURL    string
 		playlistURL string
-		// outputDir   string
+		outputDir   string
 
 		timeout int64
 	)
 
 	flag.StringVar(&trackURL, "track", "", "Track URL")
 	flag.StringVar(&playlistURL, "playlist", "", "Playlist URL")
+	flag.StringVar(&outputDir, "output", ".", "Playlist URL")
 
 	flag.Int64Var(&timeout, "timeout", 60, "Timeout duration in seconds")
 
@@ -64,6 +65,8 @@ func main() {
 	if trackURL != "" {
 		if err := svc.DownloadTrack(trackURL, &service.Options{
 			Timeout: time.Duration(timeout) * time.Second,
+			OutputDir: outputDir,
+			
 		}); err != nil {
 			log.Fatalf("error downloading track: %v", err)
 		}

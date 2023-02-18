@@ -29,12 +29,17 @@ func (s *Service) FetchAudioURL(
 	context context.Context,
 	trackURL string,
 	options *Options,
-) (string, error) {
+) (*AudioMeta, error) {
 	ctx, cancel := chromedp.NewContext(context)
 	defer cancel()
 
-	var isTrackAudioURLAvailable bool
-	var trackAudioURL string
+	var (
+		isTrackAudioURLAvailable bool
+
+		trackAudioURL string
+		trackTitle    string
+		trackArtist   string
+	)
 
 	response, err := chromedp.RunResponse(
 		ctx,
@@ -47,17 +52,19 @@ func (s *Service) FetchAudioURL(
 			&trackAudioURL,
 			&isTrackAudioURLAvailable,
 		),
+		chromedp.Text(".trackTitle", &trackTitle),
+		chromedp.Text(".albumTitle > span > a", &trackArtist),
 	)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", audioURLGettingErrorMessage, err)
+		return nil, fmt.Errorf("%s: %w", audioURLGettingErrorMessage, err)
 	}
 
 	if response.Status >= http.StatusBadRequest {
 		switch response.Status {
 		case http.StatusNotFound:
-			return "", fmt.Errorf("%s. %v", audioURLGettingErrorMessage, ErrPageNotFound)
+			return nil, fmt.Errorf("%s. %v", audioURLGettingErrorMessage, ErrPageNotFound)
 		default:
-			return "", fmt.Errorf("%s. %v, status code: %d, status message: %s",
+			return nil, fmt.Errorf("%s. %v, status code: %d, status message: %s",
 				audioURLGettingErrorMessage,
 				ErrBadResponse,
 				response.Status,
@@ -67,10 +74,14 @@ func (s *Service) FetchAudioURL(
 	}
 
 	if !isTrackAudioURLAvailable {
-		return "", ErrAudioURLNotAvailable
+		return nil, ErrAudioURLNotAvailable
 	}
 
-	return trackAudioURL, nil
+	return &AudioMeta{
+		Title:  trackTitle,
+		Artist: trackArtist,
+		URL:    trackAudioURL,
+	}, nil
 }
 
 func (s *Service) FetchAudioURLS(
