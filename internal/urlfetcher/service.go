@@ -1,4 +1,4 @@
-package service
+package urlfetcher
 
 import (
 	"context"
@@ -14,16 +14,17 @@ const (
 )
 
 var (
-	ErrPageNotFound    = errors.New("page not found")
-	ErrGettingAudioURL = errors.New("error while getting audio URL")
-	ErrRequestError    = errors.New("request error while getting audio URL")
+	ErrPageNotFound         = errors.New("page not found")
+	ErrGettingAudioURL      = errors.New("error while getting audio URL")
+	ErrRequestError         = errors.New("request error while getting audio URL")
+	ErrAudioURLNotAvailable = errors.New("audio URL not available")
 )
 
 func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{}, nil
 }
 
-func (s *Service) DownloadTrack(trackURL string, options DownloadOptions) error {
+func (s *Service) FetchAudioURL(trackURL string, options DownloadOptions) (string, error) {
 	ctx, cancel := chromedp.NewContext(
 		context.Background(),
 	)
@@ -48,21 +49,25 @@ func (s *Service) DownloadTrack(trackURL string, options DownloadOptions) error 
 		),
 	)
 	if err != nil {
-		return fmt.Errorf("%s: %w", ErrGettingAudioURL, err)
+		return "", fmt.Errorf("%s: %w", ErrGettingAudioURL, err)
 	}
 
 	if response.Status >= http.StatusBadRequest {
 		switch response.Status {
 		case http.StatusNotFound:
-			return fmt.Errorf("request error while getting track audio URL. %v", ErrPageNotFound)
+			return "", fmt.Errorf("request error while getting track audio URL. %v", ErrPageNotFound)
 		default:
-			return fmt.Errorf("%s. status code: %d", ErrRequestError, response.Status)
+			return "", fmt.Errorf("%s. status code: %d", ErrRequestError, response.Status)
 		}
 	}
 
-	return nil
+	if !isTrackAudioURLAvailable {
+		return "", ErrAudioURLNotAvailable
+	}
+
+	return trackAudioURL, nil
 }
 
-func (s *Service) DownloadPlaylist(trackURL string, options DownloadOptions) error {
-	return nil
+func (s *Service) FetchAudioURLS(playlistURL string, options DownloadOptions) ([]string, error) {
+	return nil, nil
 }
