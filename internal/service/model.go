@@ -1,8 +1,9 @@
-package downloader
+package service
 
 import (
 	"bandcamp_downloader/internal/downloader"
 	"bandcamp_downloader/internal/urlfetcher"
+	"time"
 )
 
 type Config struct {
@@ -14,6 +15,9 @@ type Dependencies struct {
 }
 
 type Options struct {
+	Timeout   time.Duration
+	OutputDir string
+	Filename  string
 }
 
 type Service struct {
