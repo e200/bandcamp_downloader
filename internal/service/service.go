@@ -12,7 +12,7 @@ var ()
 
 func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{
-		Config:      config,
+		Config:     config,
 		urlFetcher: deps.URLFetcher,
 		downloader: deps.Downloader,
 	}, nil
@@ -32,9 +32,8 @@ func (s *Service) DownloadTrack(
 		return err
 	}
 
-	if err := s.downloader.Download(ctx, audioFileURL, &downloader.Options{
-		OutputDir: options.OutputDir,
-		Filename: "first_track.mp3",
+	if err := s.downloader.Download(ctx, audioFileURL, downloader.Options{
+		Filepath: options.OutputDir,
 	}); err != nil {
 		return err
 	}

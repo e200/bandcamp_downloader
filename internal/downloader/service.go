@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"path"
 )
 
 const (
@@ -27,16 +26,14 @@ func New(config *Config, deps *Dependencies) (*Service, error) {
 func (s *Service) Download(
 	context context.Context,
 	URL string,
-	options *Options,
+	options Options,
 ) error {
 	bytes, err := s.getFileBytes(context, URL)
 	if err != nil {
 		return err
 	}
 
-	filePath := path.Join(options.OutputDir, options.Filename)
-
-	err = s.saveFile(bytes, filePath)
+	err = s.saveFile(bytes, options.Filepath)
 	if err != nil {
 		return err
 	}
@@ -47,7 +44,7 @@ func (s *Service) Download(
 func (s *Service) DownloadMany(
 	context context.Context,
 	URLs []string,
-	options *Options,
+	options Options,
 ) error {
 	return nil
 }
