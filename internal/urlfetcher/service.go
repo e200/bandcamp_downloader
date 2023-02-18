@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
 )
 
@@ -26,11 +27,11 @@ func New(config *Config, deps *Dependencies) (*Service, error) {
 }
 
 func (s *Service) FetchAudioURL(
-	context context.Context,
+	ctx context.Context,
 	trackURL string,
 	options *Options,
 ) (*AudioMeta, error) {
-	ctx, cancel := chromedp.NewContext(context)
+	ctx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
 
 	var (
@@ -41,7 +42,7 @@ func (s *Service) FetchAudioURL(
 		trackArtist   string
 	)
 
-	response, err := chromedp.RunResponse(
+	if err := s.dispatch(
 		ctx,
 		chromedp.Navigate(trackURL),
 		chromedp.WaitVisible(".playbutton"),
@@ -54,23 +55,8 @@ func (s *Service) FetchAudioURL(
 		),
 		chromedp.Text(".trackTitle", &trackTitle),
 		chromedp.Text(".albumTitle > span > a", &trackArtist),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", audioURLGettingErrorMessage, err)
-	}
-
-	if response.Status >= http.StatusBadRequest {
-		switch response.Status {
-		case http.StatusNotFound:
-			return nil, fmt.Errorf("%s. %v", audioURLGettingErrorMessage, ErrPageNotFound)
-		default:
-			return nil, fmt.Errorf("%s. %v, status code: %d, status message: %s",
-				audioURLGettingErrorMessage,
-				ErrBadResponse,
-				response.Status,
-				response.StatusText,
-			)
-		}
+	); err != nil {
+		return nil, err
 	}
 
 	if !isTrackAudioURLAvailable {
@@ -85,9 +71,93 @@ func (s *Service) FetchAudioURL(
 }
 
 func (s *Service) FetchAudioURLS(
-	context context.Context,
+	ctx context.Context,
 	playlistURL string,
 	options *Options,
-) ([]string, error) {
-	return nil, nil
+) ([]AudioMeta, error) {
+	ctx, cancel := chromedp.NewContext(ctx)
+	defer cancel()
+
+	var nodes []*cdp.Node
+
+	if err := s.dispatch(
+		ctx,
+		chromedp.Navigate(playlistURL),
+		chromedp.WaitVisible(".track_list"),
+		chromedp.Nodes(".track_list .play_status", &nodes),
+	); err != nil {
+		return nil, err
+	}
+
+	tracksActions := []chromedp.Action{
+		chromedp.Navigate(playlistURL),
+		chromedp.WaitVisible(".track_list"),
+	}
+
+	audioTrackAvailabilities := make([]bool, len(nodes))
+	audioMetas := make([]AudioMeta, len(nodes))
+
+	for i := range nodes {
+		audioMetas[i] = AudioMeta{}
+
+		nodeSelector := fmt.Sprintf(
+			".track_list .track_row_view:nth-child(%d) .play_status",
+			i+1,
+		)
+
+		tracksActions = append(
+			tracksActions,
+			chromedp.Click(nodeSelector),
+			chromedp.AttributeValue(
+				audioSelector,
+				"src",
+				&audioMetas[i].URL,
+				&audioTrackAvailabilities[i],
+			),
+			chromedp.Text(".track_info .title", &audioMetas[i].Title),
+			chromedp.Text("#name-section > h3 > span > a", &audioMetas[i].Artist),
+		)
+	}
+
+	if err := s.dispatch(
+		ctx,
+		tracksActions...,
+	); err != nil {
+		return nil, err
+	}
+
+	// some track may not be downloadble
+	/* if !isTrackAudioURLAvailable {
+		return nil, ErrAudioURLNotAvailable
+	} */
+
+	return audioMetas, nil
+}
+
+func (s *Service) dispatch(
+	ctx context.Context,
+	actions ...chromedp.Action,
+) error {
+	response, err := chromedp.RunResponse(
+		ctx,
+		actions...,
+	)
+	if err != nil {
+		return fmt.Errorf("%s: %w", audioURLGettingErrorMessage, err)
+	}
+
+	if response.Status >= http.StatusBadRequest {
+		if response.Status == http.StatusNotFound {
+			return fmt.Errorf("%s. %v", audioURLGettingErrorMessage, ErrPageNotFound)
+		}
+
+		return fmt.Errorf("%s. %v, status code: %d, status message: %s",
+			audioURLGettingErrorMessage,
+			ErrBadResponse,
+			response.Status,
+			response.StatusText,
+		)
+	}
+
+	return nil
 }

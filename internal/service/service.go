@@ -2,6 +2,7 @@ package service
 
 import (
 	"bandcamp_downloader/internal/downloader"
+	"bandcamp_downloader/internal/urlfetcher"
 	"context"
 	"fmt"
 	"os"
@@ -34,12 +35,7 @@ func (s *Service) DownloadTrack(
 		return err
 	}
 
-	filename := fmt.Sprintf(
-		"%s - %s.%s",
-		audioMeta.Artist,
-		audioMeta.Title,
-		outputFileFormat,
-	)
+	filename := s.getFilename(audioMeta)
 
 	if err := s.downloader.Download(ctx, audioMeta.URL, downloader.Options{
 		Filepath: path.Join(options.OutputDir, filename),
@@ -50,10 +46,33 @@ func (s *Service) DownloadTrack(
 	return nil
 }
 
+func (*Service) getFilename(audioMeta *urlfetcher.AudioMeta) string {
+	filename := fmt.Sprintf(
+		"%s - %s.%s",
+		audioMeta.Artist,
+		audioMeta.Title,
+		outputFileFormat,
+	)
+
+	return filename
+}
+
 func (s *Service) DownloadPlaylist(
 	playlistURL string,
 	options *Options,
 ) error {
+	ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
+	defer cancel()
+
+	_, err := s.urlFetcher.FetchAudioURLS(
+		ctx,
+		playlistURL,
+		&urlfetcher.Options{},
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
