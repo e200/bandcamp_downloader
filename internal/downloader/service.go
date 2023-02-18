@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -26,7 +27,7 @@ func New(config *Config, deps *Dependencies) (*Service, error) {
 func (s *Service) Download(
 	context context.Context,
 	URL string,
-	options Options,
+	options *Options,
 ) error {
 	bytes, err := s.getFileBytes(context, URL)
 	if err != nil {
@@ -46,7 +47,7 @@ func (s *Service) Download(
 func (s *Service) DownloadMany(
 	context context.Context,
 	URLs []string,
-	options Options,
+	options *Options,
 ) error {
 	return nil
 }
@@ -57,7 +58,9 @@ func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, err
 		return nil, fmt.Errorf("%s: %w", fileDownloadErrorMessage, err)
 	}
 
-	defer request.Body.Close()
+	if request.Body != nil {
+		defer request.Body.Close()
+	}
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
@@ -89,14 +92,7 @@ func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, err
 }
 
 func (s *Service) saveFile(bytes []byte, filePath string) error {
-	file, err := os.OpenFile(filePath, os.O_WRONLY, os.FileMode(0777))
-	if err != nil {
-		return fmt.Errorf("%s: %w", fileSavingErrorMessage, err)
-	}
-
-	defer file.Close()
-
-	_, err = file.Write(bytes)
+	err := os.WriteFile(filePath, bytes, fs.FileMode(0777))
 	if err != nil {
 		return fmt.Errorf("%s: %w", fileSavingErrorMessage, err)
 	}
