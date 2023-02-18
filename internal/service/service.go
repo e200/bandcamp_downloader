@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 )
 
 const (
@@ -35,7 +36,7 @@ func (s *Service) DownloadTrack(
 		return err
 	}
 
-	filename := s.getFilename(audioMeta)
+	filename := s.getFilename(*audioMeta)
 
 	if err := s.downloader.Download(ctx, audioMeta.URL, downloader.Options{
 		Filepath: path.Join(options.OutputDir, filename),
@@ -46,7 +47,7 @@ func (s *Service) DownloadTrack(
 	return nil
 }
 
-func (*Service) getFilename(audioMeta *urlfetcher.AudioMeta) string {
+func (*Service) getFilename(audioMeta urlfetcher.AudioMeta) string {
 	filename := fmt.Sprintf(
 		"%s - %s.%s",
 		audioMeta.Artist,
@@ -64,7 +65,7 @@ func (s *Service) DownloadPlaylist(
 	ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
 	defer cancel()
 
-	_, err := s.urlFetcher.FetchAudioURLS(
+	audioMetas, err := s.urlFetcher.FetchAudioURLS(
 		ctx,
 		playlistURL,
 		&urlfetcher.Options{},
@@ -72,6 +73,27 @@ func (s *Service) DownloadPlaylist(
 	if err != nil {
 		return err
 	}
+
+	var wg sync.WaitGroup
+
+	for i := range audioMetas {
+		wg.Add(i)
+
+		audioMeta := audioMetas[i]
+
+		go func() {
+			defer wg.Done()
+
+			err = s.downloader.Download(ctx, audioMeta.URL, downloader.Options{
+				Filepath: s.getFilename(audioMeta),
+			})
+			if err != nil {
+				return
+			}
+		}()
+	}
+
+	wg.Wait()
 
 	return nil
 }
