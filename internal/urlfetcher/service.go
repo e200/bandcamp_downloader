@@ -25,13 +25,12 @@ func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{}, nil
 }
 
-func (s *Service) FetchAudioURL(trackURL string, options Options) (string, error) {
-	ctx, cancel := chromedp.NewContext(
-		context.Background(),
-	)
-	defer cancel()
-
-	ctx, cancel = context.WithTimeout(ctx, options.Timeout)
+func (s *Service) FetchAudioURL(
+	context context.Context,
+	trackURL string,
+	options *Options,
+) (string, error) {
+	ctx, cancel := chromedp.NewContext(context)
 	defer cancel()
 
 	var isTrackAudioURLAvailable bool
@@ -74,6 +73,10 @@ func (s *Service) FetchAudioURL(trackURL string, options Options) (string, error
 	return trackAudioURL, nil
 }
 
-func (s *Service) FetchAudioURLS(playlistURL string, options Options) ([]string, error) {
+func (s *Service) FetchAudioURLS(
+	context context.Context,
+	playlistURL string,
+	options *Options,
+) ([]string, error) {
 	return nil, nil
 }
