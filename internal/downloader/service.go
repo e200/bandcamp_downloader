@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path"
 )
 
 const (
 	fileDownloadErrorMessage = "error while downloading file"
+	fileSavingErrorMessage   = "error while saving downloaded file"
 )
 
 var (
@@ -25,6 +28,17 @@ func (s *Service) Download(
 	URL string,
 	options Options,
 ) error {
+	bytes, err := s.getFileBytes(context, URL)
+	if err != nil {
+		return err
+	}
+
+	filePath := path.Join(options.OutputDir, options.Filename)
+
+	err = s.saveFile(bytes, filePath)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -37,7 +51,7 @@ func (s *Service) DownloadMany(
 	return nil
 }
 
-func getFileBytes(context context.Context, URL string) ([]byte, error) {
+func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, error) {
 	request, err := http.NewRequestWithContext(context, http.MethodGet, URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", fileDownloadErrorMessage, err)
@@ -72,4 +86,20 @@ func getFileBytes(context context.Context, URL string) ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+func (s *Service) saveFile(bytes []byte, filePath string) error {
+	file, err := os.OpenFile(filePath, os.O_WRONLY, os.FileMode(0777))
+	if err != nil {
+		return fmt.Errorf("%s: %w", fileSavingErrorMessage, err)
+	}
+
+	defer file.Close()
+
+	_, err = file.Write(bytes)
+	if err != nil {
+		return fmt.Errorf("%s: %w", fileSavingErrorMessage, err)
+	}
+
+	return nil
 }

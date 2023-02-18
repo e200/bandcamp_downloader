@@ -9,6 +9,7 @@ type Dependencies struct{}
 
 type Options struct {
 	Timeout   time.Duration
+	Filename  string
 	OutputDir string
 }
 
