@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"bandcamp_downloader/internal/downloader"
+	"bandcamp_downloader/internal/service"
 	"bandcamp_downloader/internal/urlfetcher"
 )
 
@@ -32,32 +34,48 @@ func main() {
 		log.Fatal("you must provide a track or playlist URL, not both")
 	}
 
-	bcdown, err := urlfetcher.New(
+	urlFetcher, err := urlfetcher.New(
 		&urlfetcher.Config{},
 		&urlfetcher.Dependencies{},
 	)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("unable to instantiate urlfetcher service: %v", err)
 	}
 
-	timeoutDuration := time.Duration(timeout) * time.Second
+	down, err := downloader.New(
+		&downloader.Config{},
+		&downloader.Dependencies{},
+	)
+	if err != nil {
+		log.Fatalf("unable to instantiate downloader service: %v", err)
+	}
+
+	svc, err := service.New(
+		&service.Config{},
+		&service.Dependencies{
+			URLFetcher: urlFetcher,
+			Downloader: down,
+		},
+	)
+	if err != nil {
+		log.Fatalf("unable to instantiate downloader service: %v", err)
+	}
 
 	if trackURL != "" {
-		_, err := bcdown.FetchAudioURL(
-			trackURL, urlfetcher.Options{
-				Timeout:   timeoutDuration,
-			})
-		if err != nil {
+		if err := svc.DownloadTrack(trackURL, &service.Options{
+			Timeout: time.Duration(timeout) * time.Second,
+		}); err != nil {
 			log.Fatalf("error downloading track: %v", err)
 		}
 	}
 
 	if playlistURL != "" {
-		_, err := bcdown.FetchAudioURLS(playlistURL, urlfetcher.Options{
-			Timeout:   timeoutDuration,
-		})
-		if err != nil {
-			log.Fatalf("error downloading playlist: %v", err)
+		if err := svc.DownloadPlaylist(playlistURL, &service.Options{
+			Timeout: time.Duration(timeout) * time.Second,
+		}); err != nil {
+			if err != nil {
+				log.Fatalf("error downloading playlist: %v", err)
+			}
 		}
 	}
 }
