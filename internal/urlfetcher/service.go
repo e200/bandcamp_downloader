@@ -10,13 +10,14 @@ import (
 )
 
 const (
-	audioSelector = "audio[src^=\"https://\"]"
+	audioSelector               = "audio[src^=\"https://\"]"
+	audioURLGettingErrorMessage = "error while getting audio URL"
 )
 
 var (
 	ErrPageNotFound         = errors.New("page not found")
-	ErrGettingAudioURL      = errors.New("error while getting audio URL")
-	ErrRequestError         = errors.New("request error while getting audio URL")
+	ErrBadRequest           = errors.New("bad request error")
+	ErrBadResponse          = errors.New("bad response error")
 	ErrAudioURLNotAvailable = errors.New("audio URL not available")
 )
 
@@ -49,15 +50,20 @@ func (s *Service) FetchAudioURL(trackURL string, options Options) (string, error
 		),
 	)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", ErrGettingAudioURL, err)
+		return "", fmt.Errorf("%s: %w", audioURLGettingErrorMessage, err)
 	}
 
 	if response.Status >= http.StatusBadRequest {
 		switch response.Status {
 		case http.StatusNotFound:
-			return "", fmt.Errorf("request error while getting track audio URL. %v", ErrPageNotFound)
+			return "", fmt.Errorf("%s. %v", audioURLGettingErrorMessage, ErrPageNotFound)
 		default:
-			return "", fmt.Errorf("%s. status code: %d", ErrRequestError, response.Status)
+			return "", fmt.Errorf("%s. %v, status code: %d, status message: %s",
+				audioURLGettingErrorMessage,
+				ErrBadResponse,
+				response.Status,
+				response.StatusText,
+			)
 		}
 	}
 
