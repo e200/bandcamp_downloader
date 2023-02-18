@@ -12,7 +12,7 @@ func main() {
 	var (
 		trackURL    string
 		playlistURL string
-		outputDir   string
+		// outputDir   string
 
 		timeout int64
 	)
@@ -44,9 +44,8 @@ func main() {
 
 	if trackURL != "" {
 		_, err := bcdown.FetchAudioURL(
-			trackURL, urlfetcher.DownloadOptions{
+			trackURL, urlfetcher.Options{
 				Timeout:   timeoutDuration,
-				OutputDir: outputDir,
 			})
 		if err != nil {
 			log.Fatalf("error downloading track: %v", err)
@@ -54,9 +53,8 @@ func main() {
 	}
 
 	if playlistURL != "" {
-		_, err := bcdown.FetchAudioURLS(playlistURL, urlfetcher.DownloadOptions{
+		_, err := bcdown.FetchAudioURLS(playlistURL, urlfetcher.Options{
 			Timeout:   timeoutDuration,
-			OutputDir: outputDir,
 		})
 		if err != nil {
 			log.Fatalf("error downloading playlist: %v", err)

@@ -7,9 +7,8 @@ type Config struct {
 
 type Dependencies struct{}
 
-type DownloadOptions struct {
+type Options struct {
 	Timeout time.Duration
-	OutputDir string
 }
 
 type Service struct{}
