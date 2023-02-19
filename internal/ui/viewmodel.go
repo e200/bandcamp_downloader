@@ -3,9 +3,13 @@ package ui
 import (
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+)
+
+const (
+	loadingState     UIState = "loading-state"
+	downloadingState UIState = "downloading-state"
 )
 
 var (
@@ -16,15 +20,11 @@ var (
 		BorderForeground(lipgloss.Color("240"))
 )
 
-type viewModel struct {
-	table table.Model
+func (v UIModel) Init() tea.Cmd {
+	return v.spinner.Tick
 }
 
-func (v viewModel) Init() tea.Cmd {
-	return nil
-}
-
-func (v viewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (v UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msgType := msg.(type) {
@@ -33,23 +33,45 @@ func (v viewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return v, tea.Quit
 		}
+	case UIState:
+		switch msgType {
+		case loadingState:
+			v.Loading = true
+
+			return v, tea.Batch(v.spinner.Tick)
+		}
 	}
 
-	v.table, cmd = v.table.Update(msg)
+	if v.Loading {
+		v.spinner, cmd = v.spinner.Update(msg)
+
+		return v, cmd
+	}
+
+	if v.Downloading {
+		v.table, cmd = v.table.Update(msg)
+	}
 
 	return v, cmd
 }
 
-func (v viewModel) View() string {
-	ui := fmt.Sprint(
-		// "Bandcamp Downloader (v0.1)\n",
-		v.table.View(),
-	)
+func (v UIModel) View() string {
+	var ui string
 
-	baseUi := baseStyle.Render(ui)
+	if v.Loading {
+		ui = fmt.Sprint(
+			v.spinner.View(),
+			"Fetching tracks metadata...",
+		)
+	} else {
+		ui = baseStyle.Render(fmt.Sprint(
+			// "Bandcamp Downloader (v0.1)\n",
+			v.table.View(),
+		))
+	}
 
 	return fmt.Sprint(
-		baseUi,
+		ui,
 		"\n(ctrl+c to quit)",
 	)
 }
