@@ -20,7 +20,7 @@ type Options struct {
 }
 
 type Service struct {
-	Config     *Config
-	urlFetcher *urlfetcher.Service
-	downloader *downloader.Service
+	onFetchMetaEvents        []func(meta urlfetcher.AudioMeta)
+	onDownloadTrackEvents    []func()
+	onDownloadPlaylistEvents []func()
 }

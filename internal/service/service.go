@@ -2,6 +2,7 @@ package service
 
 import (
 	"bandcamp_downloader/internal/downloader"
+	"bandcamp_downloader/internal/ui"
 	"bandcamp_downloader/internal/urlfetcher"
 	"context"
 	"fmt"
@@ -16,15 +17,24 @@ const (
 
 func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{
-		Config:     config,
+		config:     config,
 		urlFetcher: deps.URLFetcher,
 		downloader: deps.Downloader,
+		ui:         deps.UI,
 	}, nil
+}
+
+func (s *Service) Init(uiModelChan chan ui.UIModel) error {
+	if err := s.ui.Run(uiModelChan); err != nil {
+		return fmt.Errorf("unable to initiate terminal ui, error: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Service) DownloadTrack(
 	trackURL string,
-	options *Options,
+	options Options,
 ) error {
 	s.resolveOptions(options)
 
@@ -51,17 +61,6 @@ func (s *Service) DownloadTrack(
 	}
 
 	return nil
-}
-
-func (*Service) getFilename(audioMeta urlfetcher.AudioMeta) string {
-	filename := fmt.Sprintf(
-		"%s - %s.%s",
-		audioMeta.Artist,
-		audioMeta.Title,
-		outputFileFormat,
-	)
-
-	return filename
 }
 
 func (s *Service) DownloadPlaylist(
@@ -115,8 +114,19 @@ func (s *Service) OnDownloadTrack(callback func()) {
 func (s *Service) OnDownloadPlaylist(callback func()) {
 	s.onDownloadPlaylistEvents = append(s.onDownloadPlaylistEvents, callback)
 }
-	}
 
+func (*Service) getFilename(audioMeta urlfetcher.AudioMeta) string {
+	filename := fmt.Sprintf(
+		"%s - %s.%s",
+		audioMeta.Artist,
+		audioMeta.Title,
+		outputFileFormat,
+	)
+
+	return filename
+}
+
+func (s *Service) resolveOptions(options Options) error {
 	if options.OutputDir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
