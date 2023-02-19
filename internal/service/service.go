@@ -36,6 +36,12 @@ func (s *Service) DownloadTrack(
 		return err
 	}
 
+	if len(s.onFetchMetaEvents) > 0 {
+		for i := range s.onFetchMetaEvents {
+			go s.onFetchMetaEvents[i](*audioMeta)
+		}
+	}
+
 	filename := s.getFilename(*audioMeta)
 
 	if err := s.downloader.Download(ctx, audioMeta.URL, downloader.Options{
@@ -98,9 +104,17 @@ func (s *Service) DownloadPlaylist(
 	return nil
 }
 
-func (s *Service) resolveOptions(options *Options) error {
-	if options == nil {
-		options = &Options{}
+func (s *Service) OnFetchMeta(callback func(meta urlfetcher.AudioMeta)) {
+	s.onFetchMetaEvents = append(s.onFetchMetaEvents, callback)
+}
+
+func (s *Service) OnDownloadTrack(callback func()) {
+	s.onDownloadTrackEvents = append(s.onDownloadTrackEvents, callback)
+}
+
+func (s *Service) OnDownloadPlaylist(callback func()) {
+	s.onDownloadPlaylistEvents = append(s.onDownloadPlaylistEvents, callback)
+}
 	}
 
 	if options.OutputDir == "" {
