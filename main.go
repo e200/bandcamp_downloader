@@ -1,17 +1,18 @@
 package main
 
 import (
-	"flag"
+	// "flag"
 	"log"
-	"time"
+	// "time"
 
-	"bandcamp_downloader/internal/downloader"
-	"bandcamp_downloader/internal/service"
-	"bandcamp_downloader/internal/urlfetcher"
+	/* "bandcamp_downloader/internal/downloader"
+	"bandcamp_downloader/internal/service" */
+	"bandcamp_downloader/internal/ui"
+	// "bandcamp_downloader/internal/urlfetcher"
 )
 
 func main() {
-	var (
+	/* var (
 		trackURL    string
 		playlistURL string
 		outputDir   string
@@ -80,5 +81,16 @@ func main() {
 				log.Fatalf("error downloading playlist: %v", err)
 			}
 		}
+	} */
+
+	ui, err := ui.New(
+		&ui.Config{},
+		&ui.Dependencies{
+		},
+	)
+	if err != nil {
+		log.Fatalf("unable to instantiate downloader service: %v", err)
 	}
+
+	ui.Run()
 }
