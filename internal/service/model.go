@@ -8,13 +8,12 @@ import (
 )
 
 type Config struct {
-	UIModelChan chan ui.UIModel
+	UIStateChan chan any
 }
 
 type Dependencies struct {
 	URLFetcher *urlfetcher.Service
 	Downloader *downloader.Service
-	UI         *ui.Service
 }
 
 type Options struct {
@@ -23,11 +22,8 @@ type Options struct {
 }
 
 type Service struct {
-	config                   *Config
-	urlFetcher               *urlfetcher.Service
-	downloader               *downloader.Service
-	ui                       *ui.Service
-	onFetchMetaEvents        []func(meta urlfetcher.AudioMeta)
-	onDownloadTrackEvents    []func()
-	onDownloadPlaylistEvents []func()
+	config     *Config
+	urlFetcher *urlfetcher.Service
+	downloader *downloader.Service
+	ui         *ui.Service
 }

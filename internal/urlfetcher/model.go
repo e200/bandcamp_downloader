@@ -14,4 +14,7 @@ type AudioMeta struct {
 	URL    string
 }
 
-type Service struct{}
+type Service struct {
+	fetchingListeners []func()
+	fetchedListeners  []func(meta AudioMeta)
+}

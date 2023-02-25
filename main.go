@@ -9,6 +9,8 @@ import (
 	"bandcamp_downloader/internal/service"
 	"bandcamp_downloader/internal/ui"
 	"bandcamp_downloader/internal/urlfetcher"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
@@ -52,72 +54,57 @@ func main() {
 		log.Fatalf("unable to instantiate downloader service: %v", err)
 	}
 
-	UI, err := ui.New(
-		&ui.Config{},
-		&ui.Dependencies{},
-	)
-	if err != nil {
-		log.Fatalf("unable to instantiate terminal ui service: %v", err)
-	}
-
-	uiModelChan := make(chan ui.UIModel)
+	uiMsgChan := make(chan any)
 
 	svc, err := service.New(
-		&service.Config{},
+		&service.Config{
+			UIStateChan: uiMsgChan,
+		},
 		&service.Dependencies{
 			URLFetcher: urlFetcher,
 			Downloader: down,
-			UI:         UI,
 		},
 	)
 	if err != nil {
 		log.Fatalf("unable to instantiate downloader service: %v", err)
 	}
 
-	svc.OnFetchMeta(func(meta urlfetcher.AudioMeta) {
-		uiModelChan <- ui.UIModel{
-			Loading: true,
-		}
-	})
+	UI, err := ui.New(
+		&ui.Config{
+			InitialState: ui.Model{
+				UIReadyCallback: func() tea.Msg {
+					go func() {
+						if trackURL != "" {
+							if err := svc.DownloadTrack(trackURL, service.Options{
+								Timeout:   time.Duration(timeout) * time.Second,
+								OutputDir: outputDir,
+							}); err != nil {
+								log.Fatalf("error downloading track: %v", err)
+							}
+						}
 
-	svc.OnDownloadTrack(func() {
-		uiModelChan <- ui.UIModel{
-			Downloading: true,
-		}
-	})
+						if playlistURL != "" {
+							if err := svc.DownloadPlaylist(playlistURL, &service.Options{
+								Timeout: time.Duration(timeout) * time.Second,
+							}); err != nil {
+								if err != nil {
+									log.Fatalf("error downloading playlist: %v", err)
+								}
+							}
+						}
+					}()
 
-	svc.OnDownloadPlaylist(func() {
-		uiModelChan <- ui.UIModel{
-			Downloading: true,
-		}
-	})
+					return nil
+				},
+			},
+		},
+		&ui.Dependencies{},
+	)
+	if err != nil {
+		log.Fatalf("unable to instantiate terminal ui service: %v", err)
+	}
 
-	go func() {
-		if trackURL != "" {
-			uiModelChan <- ui.UIModel{
-				Loading: true,
-			}
-
-			if err := svc.DownloadTrack(trackURL, service.Options{
-				Timeout:   time.Duration(timeout) * time.Second,
-				OutputDir: outputDir,
-			}); err != nil {
-				log.Fatalf("error downloading track: %v", err)
-			}
-		}
-
-		if playlistURL != "" {
-			if err := svc.DownloadPlaylist(playlistURL, &service.Options{
-				Timeout: time.Duration(timeout) * time.Second,
-			}); err != nil {
-				if err != nil {
-					log.Fatalf("error downloading playlist: %v", err)
-				}
-			}
-		}
-	}()
-
-	if err = svc.Init(uiModelChan); err != nil {
+	if err = UI.Run(uiMsgChan); err != nil {
 		log.Fatalf("unable to initiate service: %v", err)
 	}
 }

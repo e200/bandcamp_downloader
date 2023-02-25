@@ -49,6 +49,10 @@ func (s *Service) DownloadMany(
 	return nil
 }
 
+func (s *Service) AddDownloadListener(listener func(progress int)) {
+	s.downloadListeners = append(s.downloadListeners, listener)
+}
+
 func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, error) {
 	request, err := http.NewRequestWithContext(context, http.MethodGet, URL, nil)
 	if err != nil {
@@ -80,7 +84,13 @@ func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, err
 		}
 	}
 
-	bytes, err := io.ReadAll(response.Body)
+	var writer DownloadWriter
+
+	for i := range s.downloadListeners {
+		writer.AddListener(s.downloadListeners[i])
+	}
+
+	bytes, err := io.ReadAll(io.TeeReader(response.Body, &writer))
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", fileDownloadErrorMessage, err)
 	}

@@ -20,12 +20,11 @@ func New(config *Config, deps *Dependencies) (*Service, error) {
 		config:     config,
 		urlFetcher: deps.URLFetcher,
 		downloader: deps.Downloader,
-		ui:         deps.UI,
 	}, nil
 }
 
-func (s *Service) Init(uiModelChan chan ui.UIModel) error {
-	if err := s.ui.Run(uiModelChan); err != nil {
+func (s *Service) Init(uiMsgChan chan any) error {
+	if err := s.ui.Run(uiMsgChan); err != nil {
 		return fmt.Errorf("unable to initiate terminal ui, error: %w", err)
 	}
 
@@ -36,6 +35,29 @@ func (s *Service) DownloadTrack(
 	trackURL string,
 	options Options,
 ) error {
+	uiMsgChan := s.config.UIStateChan
+
+	if uiMsgChan != nil {
+		s.urlFetcher.AddFetchingListener(func() {
+			uiMsgChan <- ui.State{
+				FetchingMeta: true,
+			}
+		})
+
+		s.urlFetcher.AddFetchedListener(func(meta urlfetcher.AudioMeta) {
+			uiMsgChan <- ui.State{
+				FetchedMeta: meta,
+			}
+		})
+
+		s.AddDownloadTrackListener(func(progress int) {
+			uiMsgChan <- ui.State{
+				Downloading:      true,
+				DownloadProgress: progress,
+			}
+		})
+	}
+
 	s.resolveOptions(options)
 
 	ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
@@ -44,12 +66,6 @@ func (s *Service) DownloadTrack(
 	audioMeta, err := s.urlFetcher.FetchAudioURL(ctx, trackURL, nil)
 	if err != nil {
 		return err
-	}
-
-	if len(s.onFetchMetaEvents) > 0 {
-		for i := range s.onFetchMetaEvents {
-			go s.onFetchMetaEvents[i](*audioMeta)
-		}
 	}
 
 	filename := s.getFilename(*audioMeta)
@@ -103,16 +119,12 @@ func (s *Service) DownloadPlaylist(
 	return nil
 }
 
-func (s *Service) OnFetchMeta(callback func(meta urlfetcher.AudioMeta)) {
-	s.onFetchMetaEvents = append(s.onFetchMetaEvents, callback)
+func (s *Service) AddDownloadTrackListener(listener func(progress int)) {
+	s.downloader.AddDownloadListener(listener)
 }
 
-func (s *Service) OnDownloadTrack(callback func()) {
-	s.onDownloadTrackEvents = append(s.onDownloadTrackEvents, callback)
-}
-
-func (s *Service) OnDownloadPlaylist(callback func()) {
-	s.onDownloadPlaylistEvents = append(s.onDownloadPlaylistEvents, callback)
+func (s *Service) AddDownloadPlaylistListener(listener func(progress int)) {
+	// s.onDownloadPlaylistEvents = append(s.onDownloadPlaylistEvents, listener)
 }
 
 func (*Service) getFilename(audioMeta urlfetcher.AudioMeta) string {

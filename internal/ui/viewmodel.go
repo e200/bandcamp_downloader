@@ -7,11 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const (
-	loadingState     UIState = "loading-state"
-	downloadingState UIState = "downloading-state"
-)
-
 var (
 	baseStyle = lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
@@ -20,12 +15,18 @@ var (
 		BorderForeground(lipgloss.Color("240"))
 )
 
-func (v UIModel) Init() tea.Cmd {
-	return v.spinner.Tick
+func (v Model) Init() tea.Cmd {
+	return tea.Batch(v.UIReadyCallback, v.Spinner.Tick)
 }
 
-func (v UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (v Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+
+	if msg == nil {
+		v.Initial = true
+
+		return v, cmd
+	}
 
 	switch msgType := msg.(type) {
 	case tea.KeyMsg:
@@ -33,45 +34,55 @@ func (v UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return v, tea.Quit
 		}
-	case UIState:
-		switch msgType {
-		case loadingState:
-			v.Loading = true
+	case State:
+		if msgType.FetchingMeta {
+			v.FetchingMeta = msgType.FetchingMeta
 
-			return v, tea.Batch(v.spinner.Tick)
+			return v, v.Spinner.Tick
+		}
+
+		if msgType.Downloading {
+			v.FetchingMeta = false
+
+			v.FetchedMeta = msgType.FetchedMeta
+			v.Downloading = msgType.Downloading
+			v.DownloadProgress = msgType.DownloadProgress
+
+			return v, cmd
 		}
 	}
 
-	if v.Loading {
-		v.spinner, cmd = v.spinner.Update(msg)
+	if v.Initial {
+		v.Spinner, cmd = v.Spinner.Update(msg)
+
+		return v, cmd
+	}
+
+	if v.FetchingMeta {
+		v.Spinner, cmd = v.Spinner.Update(msg)
 
 		return v, cmd
 	}
 
 	if v.Downloading {
-		v.table, cmd = v.table.Update(msg)
+		v.Table, cmd = v.Table.Update(msg)
+
+		return v, cmd
 	}
 
 	return v, cmd
 }
 
-func (v UIModel) View() string {
-	var ui string
-
-	if v.Loading {
-		ui = fmt.Sprint(
-			v.spinner.View(),
-			"Fetching tracks metadata...",
-		)
-	} else {
-		ui = baseStyle.Render(fmt.Sprint(
-			// "Bandcamp Downloader (v0.1)\n",
-			v.table.View(),
+func (v Model) View() string {
+	if v.FetchingMeta {
+		return v.Spinner.View()
+	}
+	
+	if v.Downloading {
+		return baseStyle.Render(fmt.Sprint(
+			v.Table.View(),
 		))
 	}
 
-	return fmt.Sprint(
-		ui,
-		"\n(ctrl+c to quit)",
-	)
+	return "Something is wrong"
 }

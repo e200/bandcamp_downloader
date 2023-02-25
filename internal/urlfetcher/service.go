@@ -26,11 +26,25 @@ func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{}, nil
 }
 
+func (s *Service) AddFetchingListener(listener func()) {
+	s.fetchingListeners = append(s.fetchingListeners, listener)
+}
+
+func (s *Service) AddFetchedListener(listener func(meta AudioMeta)) {
+	s.fetchedListeners = append(s.fetchedListeners, listener)
+}
+
 func (s *Service) FetchAudioURL(
 	ctx context.Context,
 	trackURL string,
 	options *Options,
 ) (*AudioMeta, error) {
+	if len(s.fetchingListeners) > 0 {
+		for i := range s.fetchingListeners {
+			go s.fetchingListeners[i]()
+		}
+	}
+
 	ctx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
 
@@ -63,11 +77,19 @@ func (s *Service) FetchAudioURL(
 		return nil, ErrAudioURLNotAvailable
 	}
 
-	return &AudioMeta{
+	audioMeta := AudioMeta{
 		Title:  trackTitle,
 		Artist: trackArtist,
 		URL:    trackAudioURL,
-	}, nil
+	}
+
+	if len(s.fetchedListeners) > 0 {
+		for i := range s.fetchedListeners {
+			go s.fetchedListeners[i](audioMeta)
+		}
+	}
+
+	return &audioMeta, nil
 }
 
 func (s *Service) FetchAudioURLS(
