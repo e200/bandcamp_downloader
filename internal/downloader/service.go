@@ -49,7 +49,7 @@ func (s *Service) DownloadMany(
 	return nil
 }
 
-func (s *Service) AddDownloadListener(listener func(progress int)) {
+func (s *Service) AddDownloadListener(listener func(progress uint64)) {
 	s.downloadListeners = append(s.downloadListeners, listener)
 }
 

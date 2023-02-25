@@ -50,7 +50,7 @@ func (s *Service) DownloadTrack(
 			}
 		})
 
-		s.AddDownloadTrackListener(func(progress int) {
+		s.AddDownloadTrackListener(func(progress uint64) {
 			uiMsgChan <- ui.State{
 				Downloading:      true,
 				DownloadProgress: progress,
@@ -119,7 +119,7 @@ func (s *Service) DownloadPlaylist(
 	return nil
 }
 
-func (s *Service) AddDownloadTrackListener(listener func(progress int)) {
+func (s *Service) AddDownloadTrackListener(listener func(progress uint64)) {
 	s.downloader.AddDownloadListener(listener)
 }
 

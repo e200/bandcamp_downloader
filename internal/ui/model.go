@@ -24,7 +24,7 @@ type State struct {
 	FetchedMeta      urlfetcher.AudioMeta
 	FetchingMetas    bool
 	Downloading      bool
-	DownloadProgress int
+	DownloadProgress uint64
 	DownloadingMany  bool
 }
 
@@ -34,7 +34,7 @@ type Model struct {
 	FetchedMeta      urlfetcher.AudioMeta
 	FetchingMetas    bool
 	Downloading      bool
-	DownloadProgress int
+	DownloadProgress uint64
 	DownloadingMany  bool
 	UIReadyCallback  func() tea.Msg
 

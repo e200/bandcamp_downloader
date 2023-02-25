@@ -10,10 +10,10 @@ type Options struct {
 }
 
 type Service struct{
-	downloadListeners []func(progress int)
+	downloadListeners []func(progress uint64)
 }
 
 type DownloadWriter struct {
 	total int
-	listeners []func(progress int)
+	listeners []func(progress uint64)
 }
