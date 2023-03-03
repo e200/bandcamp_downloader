@@ -20,23 +20,25 @@ type Service struct {
 }
 
 type State struct {
-	FetchingMeta     bool
-	FetchedMeta      urlfetcher.AudioMeta
-	FetchingMetas    bool
-	Downloading      bool
-	DownloadProgress uint64
-	DownloadingMany  bool
+	FetchingMeta         bool
+	FetchedMeta          urlfetcher.AudioMeta
+	FetchingMetas        bool
+	Downloading          bool
+	DownloadProgress     uint64
+	DownloadingMany      bool
+	AllDownloadsComplete bool
 }
 
 type Model struct {
-	Initial          bool
-	FetchingMeta     bool
-	FetchedMeta      urlfetcher.AudioMeta
-	FetchingMetas    bool
-	Downloading      bool
-	DownloadProgress uint64
-	DownloadingMany  bool
-	UIReadyCallback  func() tea.Msg
+	Initial              bool
+	FetchingMeta         bool
+	FetchedMeta          *urlfetcher.AudioMeta
+	FetchingMetas        bool
+	Downloading          bool
+	DownloadProgress     uint64
+	DownloadingMany      bool
+	AllDownloadsComplete bool
+	UIReadyCallback      func() tea.Msg
 
 	Spinner spinner.Model
 	Table   table.Model

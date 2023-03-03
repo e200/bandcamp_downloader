@@ -3,8 +3,10 @@ package ui
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	humanize "github.com/dustin/go-humanize"
 )
 
 var (
@@ -16,16 +18,17 @@ var (
 )
 
 func (v Model) Init() tea.Cmd {
-	return tea.Batch(v.UIReadyCallback, v.Spinner.Tick)
+	return v.UIReadyCallback
 }
 
 func (v Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	if msg == nil {
-		v.Initial = true
+		v.FetchingMeta = true
 
-		return v, cmd
+		return v, v.Spinner.Tick
+
 	}
 
 	switch msgType := msg.(type) {
@@ -36,53 +39,92 @@ func (v Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case State:
 		if msgType.FetchingMeta {
-			v.FetchingMeta = msgType.FetchingMeta
+			v.FetchingMeta = true
 
 			return v, v.Spinner.Tick
 		}
 
 		if msgType.Downloading {
 			v.FetchingMeta = false
+			v.Downloading = true
 
-			v.FetchedMeta = msgType.FetchedMeta
-			v.Downloading = msgType.Downloading
+			if v.FetchedMeta == nil {
+				v.FetchedMeta = &msgType.FetchedMeta
+			}
+
 			v.DownloadProgress = msgType.DownloadProgress
+
+			paddingRight := 2
+
+			columns := []table.Column{
+				{Title: "Track", Width: 20 + paddingRight},
+				{Title: "Artist", Width: 20 + paddingRight},
+				{Title: "Downloaded", Width: 10},
+			}
+
+			rows := []table.Row{
+				{
+					v.FetchedMeta.Title,
+					v.FetchedMeta.Artist,
+					humanize.Bytes(v.DownloadProgress),
+				},
+			}
+
+			table := table.New(
+				table.WithColumns(columns),
+				table.WithRows(rows),
+				table.WithHeight(1),
+				table.WithStyles(table.Styles{
+					Header: lipgloss.NewStyle().
+						Border(lipgloss.NormalBorder()).
+						BorderForeground(lipgloss.Color("240")).
+						BorderTop(false).
+						BorderLeft(false).
+						BorderRight(false),
+					Cell: lipgloss.NewStyle(),
+				}),
+			)
+
+			v.Table = table
+
+			v.Table, cmd = v.Table.Update(msg)
 
 			return v, cmd
 		}
+
+		if msgType.AllDownloadsComplete {
+			return v, tea.Quit
+		}
 	}
 
-	if v.Initial {
-		v.Spinner, cmd = v.Spinner.Update(msg)
-
-		return v, cmd
-	}
-
-	if v.FetchingMeta {
-		v.Spinner, cmd = v.Spinner.Update(msg)
-
-		return v, cmd
-	}
-
-	if v.Downloading {
-		v.Table, cmd = v.Table.Update(msg)
-
-		return v, cmd
-	}
+	v.Spinner, cmd = v.Spinner.Update(msg)
 
 	return v, cmd
 }
 
 func (v Model) View() string {
-	if v.FetchingMeta {
-		return v.Spinner.View()
-	}
-	
-	if v.Downloading {
-		return baseStyle.Render(fmt.Sprint(
-			v.Table.View(),
-		))
+	var ui string
+
+	if v.Initial {
+		ui += fmt.Sprintf(
+			"%sInitializing...",
+			v.Spinner.View(),
+		)
 	}
 
-	return "Something is wrong"
+	if v.FetchingMeta {
+		ui += fmt.Sprintf(
+			"%sFetching metadata...",
+			v.Spinner.View(),
+		)
+	}
+
+	if v.Downloading {
+		ui += baseStyle.Render(v.Table.View())
+	}
+
+	return fmt.Sprintf(
+		"%s\nquit (ctrl+q)",
+		ui,
+	)
 }

@@ -38,6 +38,10 @@ func (s *Service) Download(
 		return err
 	}
 
+	for i := range s.downloadCompleteListeners {
+		go s.downloadCompleteListeners[i]()
+	}
+
 	return nil
 }
 
@@ -49,8 +53,12 @@ func (s *Service) DownloadMany(
 	return nil
 }
 
-func (s *Service) AddDownloadListener(listener func(progress uint64)) {
-	s.downloadListeners = append(s.downloadListeners, listener)
+func (s *Service) AddDownloadProgressListener(listener func(progress uint64)) {
+	s.downloadProgressListeners = append(s.downloadProgressListeners, listener)
+}
+
+func (s *Service) AddDownloadCompleteListener(listener func()) {
+	s.downloadCompleteListeners = append(s.downloadCompleteListeners, listener)
 }
 
 func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, error) {
@@ -86,8 +94,8 @@ func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, err
 
 	var writer DownloadWriter
 
-	for i := range s.downloadListeners {
-		writer.AddListener(s.downloadListeners[i])
+	for i := range s.downloadProgressListeners {
+		writer.AddListener(s.downloadProgressListeners[i])
 	}
 
 	bytes, err := io.ReadAll(io.TeeReader(response.Body, &writer))

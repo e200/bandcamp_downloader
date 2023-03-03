@@ -46,7 +46,9 @@ func (s *Service) DownloadTrack(
 
 		s.urlFetcher.AddFetchedListener(func(meta urlfetcher.AudioMeta) {
 			uiMsgChan <- ui.State{
-				FetchedMeta: meta,
+				FetchingMeta: false,
+				Downloading:  true,
+				FetchedMeta:  meta,
 			}
 		})
 
@@ -54,6 +56,12 @@ func (s *Service) DownloadTrack(
 			uiMsgChan <- ui.State{
 				Downloading:      true,
 				DownloadProgress: progress,
+			}
+		})
+
+		s.downloader.AddDownloadCompleteListener(func() {
+			uiMsgChan <- ui.State{
+				AllDownloadsComplete: true,
 			}
 		})
 	}
@@ -120,7 +128,7 @@ func (s *Service) DownloadPlaylist(
 }
 
 func (s *Service) AddDownloadTrackListener(listener func(progress uint64)) {
-	s.downloader.AddDownloadListener(listener)
+	s.downloader.AddDownloadProgressListener(listener)
 }
 
 func (s *Service) AddDownloadPlaylistListener(listener func(progress int)) {

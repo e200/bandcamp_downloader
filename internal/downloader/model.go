@@ -9,11 +9,12 @@ type Options struct {
 	Filepath string
 }
 
-type Service struct{
-	downloadListeners []func(progress uint64)
+type Service struct {
+	downloadProgressListeners []func(progress uint64)
+	downloadCompleteListeners []func()
 }
 
 type DownloadWriter struct {
-	total int
+	total     int
 	listeners []func(progress uint64)
 }
