@@ -31,7 +31,7 @@ func (s *Service) Init(uiMsgChan chan any) error {
 	return nil
 }
 
-func (s *Service) DownloadTrack(
+func (s *Service) DownloadTracks(
 	trackURL string,
 	options Options,
 ) error {

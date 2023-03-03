@@ -75,7 +75,7 @@ func main() {
 				UIReadyCallback: func() tea.Msg {
 					go func() {
 						if trackURL != "" {
-							if err := svc.DownloadTrack(trackURL, service.Options{
+							if err := svc.DownloadTracks(trackURL, service.Options{
 								Timeout:   time.Duration(timeout) * time.Second,
 								OutputDir: outputDir,
 							}); err != nil {
