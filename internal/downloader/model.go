@@ -7,12 +7,10 @@ type Dependencies struct{}
 
 type Options struct {
 	Filepath string
+	ProgressListener func(progress uint64)
 }
 
-type Service struct {
-	downloadProgressListeners []func(progress uint64)
-	downloadCompleteListeners []func()
-}
+type Service struct {}
 
 type DownloadWriter struct {
 	total     int

@@ -1,9 +1,9 @@
 package service
 
 import (
+	"bandcamp_downloader/internal/audiosmetadatafetcher"
 	"bandcamp_downloader/internal/downloader"
 	"bandcamp_downloader/internal/ui"
-	"bandcamp_downloader/internal/urlfetcher"
 	"time"
 )
 
@@ -12,7 +12,7 @@ type Config struct {
 }
 
 type Dependencies struct {
-	URLFetcher *urlfetcher.Service
+	AMF        *audiosmetadatafetcher.Service
 	Downloader *downloader.Service
 }
 
@@ -22,8 +22,8 @@ type Options struct {
 }
 
 type Service struct {
-	config     *Config
-	urlFetcher *urlfetcher.Service
-	downloader *downloader.Service
-	ui         *ui.Service
+	config                *Config
+	audiosmetadatafetcher *audiosmetadatafetcher.Service
+	downloader            *downloader.Service
+	ui                    *ui.Service
 }

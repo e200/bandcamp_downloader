@@ -1,4 +1,4 @@
-package urlfetcher
+package audiosmetadatafetcher
 
 import (
 	"context"
@@ -26,76 +26,9 @@ func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{}, nil
 }
 
-func (s *Service) AddFetchingListener(listener func()) {
-	s.fetchingListeners = append(s.fetchingListeners, listener)
-}
-
-func (s *Service) AddFetchedListener(listener func(meta AudioMeta)) {
-	s.fetchedListeners = append(s.fetchedListeners, listener)
-}
-
-func (s *Service) FetchAudioURL(
+func (s *Service) Fetch(
 	ctx context.Context,
-	trackURL string,
-	options *Options,
-) (*AudioMeta, error) {
-	if len(s.fetchingListeners) > 0 {
-		for i := range s.fetchingListeners {
-			go s.fetchingListeners[i]()
-		}
-	}
-
-	ctx, cancel := chromedp.NewContext(ctx)
-	defer cancel()
-
-	var (
-		isTrackAudioURLAvailable bool
-
-		trackAudioURL string
-		trackTitle    string
-		trackArtist   string
-	)
-
-	if err := s.dispatch(
-		ctx,
-		chromedp.Navigate(trackURL),
-		chromedp.WaitVisible(".playbutton"),
-		chromedp.Click(".playbutton"),
-		chromedp.AttributeValue(
-			audioSelector,
-			"src",
-			&trackAudioURL,
-			&isTrackAudioURLAvailable,
-		),
-		chromedp.Text(".trackTitle", &trackTitle),
-		chromedp.Text(".albumTitle > span > a", &trackArtist),
-	); err != nil {
-		return nil, err
-	}
-
-	if !isTrackAudioURLAvailable {
-		return nil, ErrAudioURLNotAvailable
-	}
-
-	audioMeta := AudioMeta{
-		Title:  trackTitle,
-		Artist: trackArtist,
-		URL:    trackAudioURL,
-	}
-
-	if len(s.fetchedListeners) > 0 {
-		for i := range s.fetchedListeners {
-			go s.fetchedListeners[i](audioMeta)
-		}
-	}
-
-	return &audioMeta, nil
-}
-
-func (s *Service) FetchAudioURLS(
-	ctx context.Context,
-	playlistURL string,
-	options *Options,
+	sourceURL string,
 ) ([]AudioMeta, error) {
 	ctx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
@@ -104,7 +37,7 @@ func (s *Service) FetchAudioURLS(
 
 	if err := s.dispatch(
 		ctx,
-		chromedp.Navigate(playlistURL),
+		chromedp.Navigate(sourceURL),
 		chromedp.WaitVisible(".track_list"),
 		chromedp.Nodes(".track_list .play_status", &nodes),
 	); err != nil {
@@ -112,7 +45,7 @@ func (s *Service) FetchAudioURLS(
 	}
 
 	tracksActions := []chromedp.Action{
-		chromedp.Navigate(playlistURL),
+		chromedp.Navigate(sourceURL),
 		chromedp.WaitVisible(".track_list"),
 	}
 

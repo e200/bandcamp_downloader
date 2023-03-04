@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"bandcamp_downloader/internal/urlfetcher"
+	"bandcamp_downloader/internal/audiosmetadatafetcher"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
@@ -20,23 +20,20 @@ type Service struct {
 }
 
 type State struct {
-	FetchingMeta         bool
-	FetchedMeta          urlfetcher.AudioMeta
-	FetchingMetas        bool
-	Downloading          bool
-	DownloadProgress     uint64
-	DownloadingMany      bool
-	AllDownloadsComplete bool
+	Error     error
+	Tracks    []TrackState
+	Completed bool
+}
+
+type TrackState struct {
+	DownloadProgress  uint64
+	DownloadCompleted bool
+	DownloadError     error
+	audiosmetadatafetcher.AudioMeta
 }
 
 type Model struct {
-	Initial              bool
-	FetchingMeta         bool
-	FetchedMeta          *urlfetcher.AudioMeta
-	FetchingMetas        bool
-	Downloading          bool
-	DownloadProgress     uint64
-	DownloadingMany      bool
+	Tracks               []TrackState
 	AllDownloadsComplete bool
 	UIReadyCallback      func() tea.Msg
 

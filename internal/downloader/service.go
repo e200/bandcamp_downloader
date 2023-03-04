@@ -28,7 +28,7 @@ func (s *Service) Download(
 	URL string,
 	options Options,
 ) error {
-	bytes, err := s.getFileBytes(context, URL)
+	bytes, err := s.getFileBytes(context, URL, options.ProgressListener)
 	if err != nil {
 		return err
 	}
@@ -36,10 +36,6 @@ func (s *Service) Download(
 	err = s.saveFile(bytes, options.Filepath)
 	if err != nil {
 		return err
-	}
-
-	for i := range s.downloadCompleteListeners {
-		go s.downloadCompleteListeners[i]()
 	}
 
 	return nil
@@ -53,15 +49,7 @@ func (s *Service) DownloadMany(
 	return nil
 }
 
-func (s *Service) AddDownloadProgressListener(listener func(progress uint64)) {
-	s.downloadProgressListeners = append(s.downloadProgressListeners, listener)
-}
-
-func (s *Service) AddDownloadCompleteListener(listener func()) {
-	s.downloadCompleteListeners = append(s.downloadCompleteListeners, listener)
-}
-
-func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, error) {
+func (s *Service) getFileBytes(context context.Context, URL string, listener func(progress uint64)) ([]byte, error) {
 	request, err := http.NewRequestWithContext(context, http.MethodGet, URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", fileDownloadErrorMessage, err)
@@ -94,8 +82,8 @@ func (s *Service) getFileBytes(context context.Context, URL string) ([]byte, err
 
 	var writer DownloadWriter
 
-	for i := range s.downloadProgressListeners {
-		writer.AddListener(s.downloadProgressListeners[i])
+	if listener != nil {
+		writer.AddListener(listener)
 	}
 
 	bytes, err := io.ReadAll(io.TeeReader(response.Body, &writer))

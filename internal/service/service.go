@@ -1,9 +1,9 @@
 package service
 
 import (
+	"bandcamp_downloader/internal/audiosmetadatafetcher"
 	"bandcamp_downloader/internal/downloader"
 	"bandcamp_downloader/internal/ui"
-	"bandcamp_downloader/internal/urlfetcher"
 	"context"
 	"fmt"
 	"os"
@@ -17,9 +17,9 @@ const (
 
 func New(config *Config, deps *Dependencies) (*Service, error) {
 	return &Service{
-		config:     config,
-		urlFetcher: deps.URLFetcher,
-		downloader: deps.Downloader,
+		config:                config,
+		audiosmetadatafetcher: deps.AMF,
+		downloader:            deps.Downloader,
 	}, nil
 }
 
@@ -32,110 +32,90 @@ func (s *Service) Init(uiMsgChan chan any) error {
 }
 
 func (s *Service) DownloadTracks(
-	trackURL string,
+	sourceURL string,
 	options Options,
 ) error {
 	uiMsgChan := s.config.UIStateChan
-
-	if uiMsgChan != nil {
-		s.urlFetcher.AddFetchingListener(func() {
-			uiMsgChan <- ui.State{
-				FetchingMeta: true,
-			}
-		})
-
-		s.urlFetcher.AddFetchedListener(func(meta urlfetcher.AudioMeta) {
-			uiMsgChan <- ui.State{
-				FetchingMeta: false,
-				Downloading:  true,
-				FetchedMeta:  meta,
-			}
-		})
-
-		s.AddDownloadTrackListener(func(progress uint64) {
-			uiMsgChan <- ui.State{
-				Downloading:      true,
-				DownloadProgress: progress,
-			}
-		})
-
-		s.downloader.AddDownloadCompleteListener(func() {
-			uiMsgChan <- ui.State{
-				AllDownloadsComplete: true,
-			}
-		})
-	}
 
 	s.resolveOptions(options)
 
 	ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
 	defer cancel()
 
-	audioMeta, err := s.urlFetcher.FetchAudioURL(ctx, trackURL, nil)
+	tracksMetadata, err := s.audiosmetadatafetcher.Fetch(ctx, sourceURL)
 	if err != nil {
-		return err
-	}
+		uiMsgChan <- ui.State{
+			Error:     err,
+			Completed: true,
+		}
 
-	filename := s.getFilename(*audioMeta)
-
-	if err := s.downloader.Download(ctx, audioMeta.URL, downloader.Options{
-		Filepath: path.Join(options.OutputDir, filename),
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Service) DownloadPlaylist(
-	playlistURL string,
-	options *Options,
-) error {
-	ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
-	defer cancel()
-
-	audioMetas, err := s.urlFetcher.FetchAudioURLS(
-		ctx,
-		playlistURL,
-		&urlfetcher.Options{},
-	)
-	if err != nil {
-		return err
+		close(uiMsgChan)
 	}
 
 	var wg sync.WaitGroup
 
-	for i := range audioMetas {
-		wg.Add(i)
+	numTracks := len(tracksMetadata)
 
-		audioMeta := audioMetas[i]
+	wg.Add(numTracks)
 
-		go func() {
-			defer wg.Done()
+	tracksStates := make([]ui.TrackState, 0, numTracks)
 
-			err = s.downloader.Download(ctx, audioMeta.URL, downloader.Options{
-				Filepath: s.getFilename(audioMeta),
-			})
+	for i := range tracksMetadata {
+		tracksStates = append(tracksStates, ui.TrackState{
+			AudioMeta: tracksMetadata[i],
+		})
+
+		go func(currentTrackIndex int, tracksStates []ui.TrackState) {
 			if err != nil {
+				tracksStates[currentTrackIndex].DownloadError = err
+
+				wg.Done()
+
 				return
 			}
-		}()
+
+			filename := s.getFilename(tracksStates[currentTrackIndex].AudioMeta)
+
+			if err := s.downloader.Download(
+				ctx, tracksStates[currentTrackIndex].URL, downloader.Options{
+					Filepath: path.Join(options.OutputDir, filename),
+					ProgressListener: func(progress uint64) {
+						tracksStates[currentTrackIndex].DownloadProgress = progress
+
+						uiMsgChan <- ui.State{
+							Tracks: tracksStates,
+						}
+					},
+				}); err != nil {
+				tracksStates[currentTrackIndex].DownloadError = err
+
+				wg.Done()
+
+				return
+			}
+
+			tracksStates[currentTrackIndex].DownloadCompleted = true
+
+			uiMsgChan <- ui.State{
+				Tracks: tracksStates,
+			}
+
+			wg.Done()
+		}(i, tracksStates)
 	}
 
 	wg.Wait()
 
+	uiMsgChan <- ui.State{
+		Completed: true,
+	}
+
+	close(uiMsgChan)
+
 	return nil
 }
 
-func (s *Service) AddDownloadTrackListener(listener func(progress uint64)) {
-	s.downloader.AddDownloadProgressListener(listener)
-}
-
-func (s *Service) AddDownloadPlaylistListener(listener func(progress int)) {
-	// s.onDownloadPlaylistEvents = append(s.onDownloadPlaylistEvents, listener)
-}
-
-func (*Service) getFilename(audioMeta urlfetcher.AudioMeta) string {
+func (*Service) getFilename(audioMeta audiosmetadatafetcher.AudioMeta) string {
 	filename := fmt.Sprintf(
 		"%s - %s.%s",
 		audioMeta.Artist,

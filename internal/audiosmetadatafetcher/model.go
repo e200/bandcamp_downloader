@@ -1,12 +1,9 @@
-package urlfetcher
+package audiosmetadatafetcher
 
 type Config struct {
 }
 
 type Dependencies struct{}
-
-type Options struct {
-}
 
 type AudioMeta struct {
 	Title  string
